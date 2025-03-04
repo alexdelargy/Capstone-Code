@@ -236,7 +236,7 @@ if uploaded_file is not None:
     col1, col2 = st.columns(2)
     with col1:
         st.header("Correlation Heatmap")
-        corr = df.corr()
+        corr = df.corr(numeric_only=True)
         fig, ax = plt.subplots(figsize=(8, 6))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
         st.pyplot(fig)
