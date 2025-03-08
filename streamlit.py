@@ -80,94 +80,97 @@ class CustomModel:
         return data_pipeline
     
     def generateModel(self):
-        if self.modelType == 'Linear':
-            model = LinearRegression()
-            param_grid = {'fit_intercept': [True]}
+        match self.modelType:
+        
+            case 'Linear':
+                model = LinearRegression()
+                param_grid = {'fit_intercept': [True]}
 
-        elif self.modelType == 'SGDRegressor':
-            model = SGDRegressor()
-            param_grid = {
-                'loss': ['squared_loss', 'huber'],
-                'penalty': ['l2', 'elasticnet'],
-                'alpha': [1e-4, 1e-3],
-                # For elasticnet, a single l1_ratio value can suffice for initial tuning
-                'l1_ratio': [0.15],
-                'learning_rate': ['optimal'],
-            }
+            case 'SGDRegressor':
+                model = SGDRegressor()
+                param_grid = {
+                    'loss': ['squared_loss', 'huber'],
+                    'penalty': ['l2', 'elasticnet'],
+                    'alpha': [1e-4, 1e-3],
+                    # For elasticnet, a single l1_ratio value can suffice for initial tuning
+                    'l1_ratio': [0.15],
+                    'learning_rate': ['optimal'],
+                }
 
-        elif self.modelType == 'Logistic':
-            model = LogisticRegression()
-            c_space = np.logspace(-5, 8, 15)
-            param_grid = {'C': c_space, 'penalty': ['l1', 'l2']}
+            case 'Logistic':
+                model = LogisticRegression()
+                c_space = np.logspace(-5, 8, 15)
+                param_grid = {'C': c_space, 'penalty': ['l1', 'l2']}
 
-        elif self.modelType == 'RandomForestRegressor':
-            model = RandomForestRegressor()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_features': ['sqrt', 'log2', None],
-                'max_depth': [10, 20, None],
-                'min_samples_split': [2, 5],
-                'min_samples_leaf': [1, 2],
-                'bootstrap': [True]
-            }
-        elif self.modelType == 'RandomForestClassifier':
-            model = RandomForestClassifier()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_features': ['sqrt', 'log2', None],
-                'max_depth': [10, 20, None],
-                'min_samples_split': [2, 5],
-                'min_samples_leaf': [1, 2],
-                'bootstrap': [True]
-            }
+            case 'RandomForestRegressor':
+                model = RandomForestRegressor()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_features': ['sqrt', 'log2', None],
+                    'max_depth': [10, 20, None],
+                    'min_samples_split': [2, 5],
+                    'min_samples_leaf': [1, 2],
+                    'bootstrap': [True]
+                }
+            case 'RandomForestClassifier':
+                model = RandomForestClassifier()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_features': ['sqrt', 'log2', None],
+                    'max_depth': [10, 20, None],
+                    'min_samples_split': [2, 5],
+                    'min_samples_leaf': [1, 2],
+                    'bootstrap': [True]
+                }
+                
+            case 'SVM':
+                model = SVR()
+                param_grid = {'C': [0.1, 1, 10, 100, 1000],
+                            'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
+                            'kernel': ['rbf']}
+
+            case 'DecisionTree':
+                model = DecisionTreeClassifier()
+                param_grid = {'criterion': ['gini', 'entropy'],
+                            'splitter': ['best', 'random'],
+                            'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
+                            'min_samples_split': [2, 5, 10],
+                            'min_samples_leaf': [1, 2, 4]}
+
+            case 'KNN':
+                model = KNeighborsClassifier()
+                param_grid = {'n_neighbors': np.arange(1, 25)}
+
+            case 'XGBoostRegressor':
+                model = XGBRegressor()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_depth': [3, 6, 9],
+                    'learning_rate': [0.01, 0.1, 0.2],
+                    'subsample': [0.8, 1.0],
+                    'colsample_bytree': [0.8, 1.0]
+                }
+
+            case 'XGBoostClassifier':
+                model = XGBClassifier()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_depth': [3, 6, 9],
+                    'learning_rate': [0.01, 0.1, 0.2],
+                    'subsample': [0.8, 1.0],
+                    'colsample_bytree': [0.8, 1.0]
+                }
+
+            case 'NeuralNetwork':
+                model = tf.keras.models.Sequential()
+                model.add(tf.keras.layers.InputLayer(shape=(self.X_train_preprocessed.shape[1],)))
+                model.add(tf.keras.layers.Dense(32, activation='relu'))
+                model.add(tf.keras.layers.Dense(64, activation='relu'))
+                model.add(tf.keras.layers.Dense(32, activation='relu'))
+                model.add(tf.keras.layers.Dense(1, activation='linear'))
+                model.compile(optimizer='adam', loss='mean_squared_error')
+
             
-        elif self.modelType == 'SVM':
-            model = SVR()
-            param_grid = {'C': [0.1, 1, 10, 100, 1000],
-                          'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
-                          'kernel': ['rbf']}
-
-        elif self.modelType == 'DecisionTree':
-            model = DecisionTreeClassifier()
-            param_grid = {'criterion': ['gini', 'entropy'],
-                          'splitter': ['best', 'random'],
-                          'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
-                          'min_samples_split': [2, 5, 10],
-                          'min_samples_leaf': [1, 2, 4]}
-
-        elif self.modelType == 'KNN':
-            model = KNeighborsClassifier()
-            param_grid = {'n_neighbors': np.arange(1, 25)}
-
-        elif self.modelType =='NeuralNetwork':
-            model = tf.keras.models.Sequential()
-            model.add(tf.keras.layers.InputLayer(shape=(self.X_train_preprocessed.shape[1],)))
-            model.add(tf.keras.layers.Dense(32, activation='relu'))
-            model.add(tf.keras.layers.Dense(64, activation='relu'))
-            model.add(tf.keras.layers.Dense(32, activation='relu'))
-            model.add(tf.keras.layers.Dense(1, activation='linear'))
-            model.compile(optimizer='adam', loss='mean_squared_error')
-
-
-        elif self.modelType == 'XGBoostRegressor':
-            model = XGBRegressor()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_depth': [3, 6, 9],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'subsample': [0.8, 1.0],
-                'colsample_bytree': [0.8, 1.0]
-            }
-
-        elif self.modelType == 'XGBoostClassifier':
-            model = XGBClassifier()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_depth': [3, 6, 9],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'subsample': [0.8, 1.0],
-                'colsample_bytree': [0.8, 1.0]
-            }
 
         return GridSearchCV(model, param_grid, cv=5)
     
@@ -374,94 +377,97 @@ class CustomModel:
         return data_pipeline
     
     def generateModel(self):
-        if self.modelType == 'Linear':
-            model = LinearRegression()
-            param_grid = {'fit_intercept': [True]}
+        match self.modelType:
+            case 'Linear':
+                model = LinearRegression()
+                param_grid = {'fit_intercept': [True]}
 
-        elif self.modelType == 'SGDRegressor':
-            model = SGDRegressor()
-            param_grid = {
-                'loss': ['squared_loss', 'huber'],
-                'penalty': ['l2', 'elasticnet'],
-                'alpha': [1e-4, 1e-3],
-                # For elasticnet, a single l1_ratio value can suffice for initial tuning
-                'l1_ratio': [0.15],
-                'learning_rate': ['optimal'],
-            }
+            case 'SGDRegressor':
+                model = SGDRegressor()
+                param_grid = {
+                    'loss': ['squared_loss', 'huber'],
+                    'penalty': ['l2', 'elasticnet'],
+                    'alpha': [1e-4, 1e-3],
+                    # For elasticnet, a single l1_ratio value can suffice for initial tuning
+                    'l1_ratio': [0.15],
+                    'learning_rate': ['optimal'],
+                }
 
-        elif self.modelType == 'Logistic':
-            model = LogisticRegression()
-            c_space = np.logspace(-5, 8, 15)
-            param_grid = {'C': c_space, 'penalty': ['l1', 'l2']}
+            case 'Logistic':
+                model = LogisticRegression()
+                c_space = np.logspace(-5, 8, 15)
+                param_grid = {'C': c_space, 'penalty': ['l1', 'l2']}
 
-        elif self.modelType == 'RandomForestRegressor':
-            model = RandomForestRegressor()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_features': ['sqrt', 'log2', None],
-                'max_depth': [10, 20, None],
-                'min_samples_split': [2, 5],
-                'min_samples_leaf': [1, 2],
-                'bootstrap': [True]
-            }
-        elif self.modelType == 'RandomForestClassifier':
-            model = RandomForestClassifier()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_features': ['sqrt', 'log2', None],
-                'max_depth': [10, 20, None],
-                'min_samples_split': [2, 5],
-                'min_samples_leaf': [1, 2],
-                'bootstrap': [True]
-            }
-            
-        elif self.modelType == 'SVM':
-            model = SVR()
-            param_grid = {'C': [0.1, 1, 10, 100, 1000],
-                          'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
-                          'kernel': ['rbf']}
+            case 'RandomForestRegressor':
+                model = RandomForestRegressor()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_features': ['sqrt', 'log2', None],
+                    'max_depth': [10, 20, None],
+                    'min_samples_split': [2, 5],
+                    'min_samples_leaf': [1, 2],
+                    'bootstrap': [True]
+                }
+        
+            case 'RandomForestClassifier':
+                model = RandomForestClassifier()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_features': ['sqrt', 'log2', None],
+                    'max_depth': [10, 20, None],
+                    'min_samples_split': [2, 5],
+                    'min_samples_leaf': [1, 2],
+                    'bootstrap': [True]
+                }
+                
+            case 'SVM':
+                model = SVR()
+                param_grid = {'C': [0.1, 1, 10, 100, 1000],
+                            'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
+                            'kernel': ['rbf']}
 
-        elif self.modelType == 'DecisionTree':
-            model = DecisionTreeClassifier()
-            param_grid = {'criterion': ['gini', 'entropy'],
-                          'splitter': ['best', 'random'],
-                          'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
-                          'min_samples_split': [2, 5, 10],
-                          'min_samples_leaf': [1, 2, 4]}
+            case 'DecisionTree':
+                model = DecisionTreeClassifier()
+                param_grid = {'criterion': ['gini', 'entropy'],
+                            'splitter': ['best', 'random'],
+                            'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
+                            'min_samples_split': [2, 5, 10],
+                            'min_samples_leaf': [1, 2, 4]}
 
-        elif self.modelType == 'KNN':
-            model = KNeighborsClassifier()
-            param_grid = {'n_neighbors': np.arange(1, 25)}
-
-        elif self.modelType =='NeuralNetwork':
-            model = tf.keras.models.Sequential()
-            model.add(tf.keras.layers.InputLayer(shape=(self.X_train_preprocessed.shape[1],)))
-            model.add(tf.keras.layers.Dense(32, activation='relu'))
-            model.add(tf.keras.layers.Dense(64, activation='relu'))
-            model.add(tf.keras.layers.Dense(32, activation='relu'))
-            model.add(tf.keras.layers.Dense(1, activation='linear'))
-            model.compile(optimizer='adam', loss='mean_squared_error')
+            case 'KNN':
+                model = KNeighborsClassifier()
+                param_grid = {'n_neighbors': np.arange(1, 25)}
 
 
-        elif self.modelType == 'XGBoostRegressor':
-            model = XGBRegressor()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_depth': [3, 6, 9],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'subsample': [0.8, 1.0],
-                'colsample_bytree': [0.8, 1.0]
-            }
+            case 'XGBoostRegressor':
+                model = XGBRegressor()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_depth': [3, 6, 9],
+                    'learning_rate': [0.01, 0.1, 0.2],
+                    'subsample': [0.8, 1.0],
+                    'colsample_bytree': [0.8, 1.0]
+                }
 
-        elif self.modelType == 'XGBoostClassifier':
-            model = XGBClassifier()
-            param_grid = {
-                'n_estimators': [50, 100],
-                'max_depth': [3, 6, 9],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'subsample': [0.8, 1.0],
-                'colsample_bytree': [0.8, 1.0]
-            }
+            case 'XGBoostClassifier':
+                model = XGBClassifier()
+                param_grid = {
+                    'n_estimators': [50, 100],
+                    'max_depth': [3, 6, 9],
+                    'learning_rate': [0.01, 0.1, 0.2],
+                    'subsample': [0.8, 1.0],
+                    'colsample_bytree': [0.8, 1.0]
+                }
+
+            case 'NeuralNetwork':
+                model = tf.keras.models.Sequential()
+                model.add(tf.keras.layers.InputLayer(shape=(self.X_train_preprocessed.shape[1],)))
+                model.add(tf.keras.layers.Dense(32, activation='relu'))
+                model.add(tf.keras.layers.Dense(64, activation='relu'))
+                model.add(tf.keras.layers.Dense(32, activation='relu'))
+                model.add(tf.keras.layers.Dense(1, activation='linear'))
+                model.compile(optimizer='adam', loss='mean_squared_error')
+
 
         return GridSearchCV(model, param_grid, cv=5)
     
