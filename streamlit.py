@@ -4,7 +4,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-import tensorflow as tf 
+import tensorflow as tf
 
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LinearRegression, LogisticRegression, SGDClassifier, SGDRegressor
@@ -28,6 +28,7 @@ class CustomModel:
         self.df = df
         self.taskType = taskType
         self.modelType = modelType
+        self.df = self.df.dropna(axis=0, subset=[y_feature])
         self.X = self.df[x_features]
         self.y = self.df[y_feature]
 
@@ -93,6 +94,16 @@ class CustomModel:
                     'penalty': ['l2', 'elasticnet'],
                     'alpha': [1e-4, 1e-3],
                     # For elasticnet, a single l1_ratio value can suffice for initial tuning
+                    'l1_ratio': [0.15],
+                    'learning_rate': ['optimal'],
+                }
+
+            case 'SGDClassifier':
+                model = SGDClassifier()
+                param_grid = {
+                    'loss': ['log', 'hinge'],
+                    'penalty': ['l2', 'elasticnet'],
+                    'alpha': [1e-4, 1e-3],
                     'l1_ratio': [0.15],
                     'learning_rate': ['optimal'],
                 }
@@ -163,15 +174,27 @@ class CustomModel:
 
             case 'NeuralNetwork':
                 model = tf.keras.models.Sequential()
-                model.add(tf.keras.layers.InputLayer(shape=(self.X_train_preprocessed.shape[1],)))
-                model.add(tf.keras.layers.Dense(32, activation='relu'))
-                model.add(tf.keras.layers.Dense(64, activation='relu'))
-                model.add(tf.keras.layers.Dense(32, activation='relu'))
-                model.add(tf.keras.layers.Dense(1, activation='linear'))
-                model.compile(optimizer='adam', loss='mean_squared_error')
+                model.add(tf.keras.layers.InputLayer(shape=(self.X_train_preprocessed.shape[1], )))
+                
+                if hasattr(self, 'neural_layers'):
+                    for units, activation in self.neural_layers:
+                        model.add(tf.keras.layers.Dense(units, activation=activation))
 
+                else:
+                    model.add(tf.keras.layers.Dense(32, activation='relu'))
+                    model.add(tf.keras.layers.Dense(64, activation='relu'))
+                    model.add(tf.keras.layers.Dense(128, activation='relu'))
+                    model.add(tf.keras.layers.Dense(64, activation='relu'))
+                    model.add(tf.keras.layers.Dense(32, activation='relu'))
+
+                if self.taskType == "Regression":
+                    model.add(tf.keras.layers.Dense(1, activation='linear'))
+                else:
+                    model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
+
+                model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'] if self.taskType == "Classification" else ['mse'])
+                return model
             
-
         return GridSearchCV(model, param_grid, cv=5)
     
     def preprocessData(self):
@@ -185,7 +208,9 @@ class CustomModel:
         self.preprocessData()
         self.model = self.generateModel()
         self.model.fit(self.X_train_preprocessed, self.y_train)
-        return self.model.best_params_
+        if hasattr(self.model, 'best_params_'):
+            return self.model.best_params_
+        return {}
     
     def evaluateModel(self, metrics):
         y_pred = self.model.predict(self.X_test_preprocessed)
@@ -228,8 +253,9 @@ st.set_page_config(page_title="Blackbox AI", layout="wide")
 st.title("Blackbox AI")
 
 # Step 1: Upload CSV file
-st.sidebar.header("Step 1: Upload CSV File")
-uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
+st.sidebar.header("Step 1: Upload File", divider=True)
+uploaded_file = st.sidebar.file_uploader("Upload your file", type=["csv"])
+
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -264,16 +290,20 @@ if uploaded_file is not None:
             st.pyplot(fig)
 
     # Step 2: Select features and target
-    st.sidebar.header("Step 2: Select Features and Target")
-    features = st.sidebar.multiselect("Select Features", df.columns)
+    st.sidebar.header("Step 2: Select Features and Target", divider=True)
+    features = []
+    st.sidebar.write("Select Features")
+    for column in df.columns:
+        if st.sidebar.checkbox(column):
+            features.append(column)
     target = st.sidebar.selectbox("Select Target", set(df.columns) - set(features))
 
     # Step 3: Select classification or regression
-    st.sidebar.header("Step 3: Select Task Type")
+    st.sidebar.header("Step 3: Select Task Type", divider=True)
     task_type = st.sidebar.radio("Task Type", ("Regression", "Classification"))
 
     # Step 4: Select preprocessing steps
-    st.sidebar.header("Step 4: Select Preprocessing Steps")
+    st.sidebar.header("Step 4: Select Preprocessing Steps", divider=True)
     scaler = st.sidebar.selectbox("Select Scaler", ["StandardScaler", "MinMaxScaler", "None"])
     encoder = st.sidebar.selectbox("Select Encoder", ["OneHotEncoder", "OrdinalEncoder", "None"])
     nullHandlerNumeric = st.sidebar.selectbox("Select Null Handler for Numeric Data", ["KNNImputer", "Mean", "Median", "MostFrequent", "None"])
@@ -287,15 +317,25 @@ if uploaded_file is not None:
         st.dataframe(st.session_state.df_preprocess.head())
 
     # Step 5: Select model type
-    st.sidebar.header("Step 5: Select Model Type")
+    st.sidebar.header("Step 5: Select Model Type", divider=True)
     if task_type == "Regression":
         model_type = st.sidebar.selectbox("Model Type", ("Linear", "SGDRegressor", "RandomForestRegressor", "NeuralNetwork", "XGBoostRegressor"))
     else:
-        model_type = st.sidebar.selectbox("Model Type", ("Logistic", "RandomForestClassifier", "SVM", "DecisionTree", "KNN", "NeuralNetwork", "XGBoostClassifier"))
+        model_type = st.sidebar.selectbox("Model Type", ("Logistic", "SGDClassifier", "RandomForestClassifier", "SVM", "DecisionTree", "KNN", "NeuralNetwork", "XGBoostClassifier"))
     custom_model.modelType = model_type
 
+    if custom_model.modelType == "NeuralNetwork":
+        with st.sidebar.popover("Design Neural Network"):
+            num_layers = st.number_input("Enter Number of Layers", min_value=1, max_value=10, value=3, step=1)
+            custom_model.neural_layers = [] * num_layers
+            for i in range(num_layers):
+                units = st.number_input(f"Enter Number of Units for Layer {i+1}", min_value=1, value=32, step=1)
+                activation = st.selectbox(f"Select Activation Function for Layer {i+1}", ["relu", "sigmoid", "tanh"])
+                custom_model.neural_layers.append((units, activation))
+        
+
     # Step 6: Select metrics
-    st.sidebar.header("Step 6: Select Metrics")
+    st.sidebar.header("Step 6: Select Metrics", divider=True)
     if task_type == "Regression":
         metrics = st.sidebar.multiselect("Select Metrics", ["MSE", "RMSE", "MAE", "R2 Score"])
     else:
@@ -303,16 +343,15 @@ if uploaded_file is not None:
 
     # Step 7: Train model
     if st.sidebar.button("Train Model"):
-        st.write("### Training Model...")
-        # Create and train the model using CustomModel class
-        best_params = custom_model.trainModel()
+        with st.spinner("Training Model...", show_time=True):
+            best_params = custom_model.trainModel()
+            st.success("Model Trained Successfully!")
 
-        st.write("### Model trained successfully!")
-        st.write("**Best Parameters:**")
+        st.write("### Best Parameters:")
         st.write(pd.DataFrame([best_params]))
 
         # Evaluate the model
         metrics_dict = custom_model.evaluateModel(metrics)
         st.write("### Model Evaluation")
-        st.write(metrics_dict)
-        
+        st.write(pd.DataFrame([metrics_dict]))
+
