@@ -309,6 +309,7 @@ if uploaded_file is not None:
     nullHandlerNumeric = st.sidebar.selectbox("Select Null Handler for Numeric Data", ["KNNImputer", "Mean", "Median", "MostFrequent", "None"])
     nullHandlerCategorical = st.sidebar.selectbox("Select Null Handler for Categorical Data", ["KNNImputer", "MostFrequent", "None"])
     custom_model = CustomModel(df, task_type, features, target, scaler, encoder, nullHandlerNumeric, nullHandlerCategorical)
+    
     if st.sidebar.button("Preprocess Data"):
         st.session_state.df_preprocess = custom_model.preprocessData()
 
